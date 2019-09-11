@@ -34,58 +34,64 @@ my @certificates = (qw(
     /etc/pki/kopano/certs/kopano.pem
 ));
 
-
 # expanded templates on SAVE event
 my @saveTemplates = qw(
     /etc/postfix/main.cf
     /etc/postfix/transport
     /etc/postfix/virtual
     /etc/postfix/internal_access
+    /etc/postfix/disabled_groups
     /etc/postfix/recipient_bcc
+    /etc/postfix/login_maps.pcre
+    /etc/postfix/login_maps
     /etc/kopano/ldap.cfg
     /etc/kopano/gateway.cfg
     /etc/kopano/server.cfg
+    /etc/opendkim.conf
+    /etc/opendkim/TrustedHosts
+    /etc/opendkim/KeyTable
+    /etc/opendkim/SigningTable
 );
 
+#
+# nethserver-kopano-update event
+#
+event_templates('nethserver-kopano-update',
+	@saveTemplates,
+    @certificates, qw(
+	/etc/postfix/master.cf
+    /etc/backup-config.d/nethserver-sssd.include
+));
+event_actions('nethserver-kopano-update',qw(
+	initialize-default-databases 00
+    nethserver-kopano-default-domain-create 01
+    nethserver-mail-server-postfix-get-group-enable 20
+    nethserver-kopano-conf 10
+	nethserver-mail-postmap-update 30
+    nethserver-mail-create-opendkim-key 40
+    nethserver-sssd-initkeytabs 50
+));
+event_services('nethserver-kopano-update', qw(
+	rsyslog restart
+	postfix restart
+    opendkim restart
+    kopano-server reload
+    kopano-gateway reload
+));
 
 #
 # nethserver-kopano-save event
 #
-event_templates('nethserver-kopano-save', @saveTemplates);
-
+event_templates('nethserver-kopano-save', qw(
+    @saveTemplates
+));
 event_actions('nethserver-kopano-save', qw(
-  nethserver-mail-postmap-update 30
+    nethserver-mail-postmap-update 30
 ));
-
 event_services('nethserver-kopano-save', qw(
-	       postfix reload
-           kopano-server reload
-           kopano-gateway reload
-));
-
-# nethserver-kopano-uddate event
-event_templates('nethserver-kopano-update',
-		@saveTemplates,
-        @certificates, qw(
-		/etc/postfix/master.cf
-		/etc/amavisd/amavisd.conf
-));
-
-event_actions('nethserver-kopano-update', qw(
-	    initialize-default-databases 00
-        nethserver-kopano-default-domain-create 01
-        nethserver-kopano-conf 10
-	    nethserver-mail-postmap-update 30
-        nethserver-sssd-initkeytabs 50
-));
-
-event_services('nethserver-kopano-update', qw(
-	       amavisd restart
-	       rsyslog restart
-	       postfix restart
-           dnsmasq restart
-           kopano-server reload
-           kopano-gateway reload
+	postfix reload
+    kopano-server reload
+    kopano-gateway reload
 ));
 
 #
@@ -95,21 +101,12 @@ my @pseudonymTemplates = qw(
     /etc/postfix/virtual
     /etc/postfix/internal_access
 );
-
 foreach (qw(create modify delete)) {
     event_templates('pseudonym-' . $_, @pseudonymTemplates);
     event_actions('pseudonym-'   . $_, 
-		  'nethserver-mail-postmap-update' => '30',
+	'nethserver-mail-postmap-update' => '30',
 	);
 }
-
-#
-# user-delete event
-#
-#event_templates('user-delete', qw(
-#));
-#event_actions('user-delete', qw(
-#));
 
 #
 # domain-* events: expand recipient_bcc map
@@ -132,13 +129,13 @@ foreach (qw(create delete modify)) {
 #
 # certificate-update event
 #
-event_templates('certificate-update', @certificates);
-
+event_templates('certificate-update',
+   @certificates, qw(
+));
 event_services('certificate-update', qw(
     kopano-server reload
     kopano-gateway reload
 ));
-
 
 #
 # profile-modify event (refs #2675)
@@ -146,13 +143,11 @@ event_services('certificate-update', qw(
 event_templates('profile-modify', qw(
     /etc/postfix/virtual
 ));
-
 event_actions('profile-modify', qw(
     nethserver-mail-postmap-update 30
 ));
 #event_services('profile-modify', qw(
 #));
-
 
 #
 # mailbox-save event
@@ -166,7 +161,6 @@ event_actions('mailbox-save', qw(
 ));
 #event_services('mailbox-save', qw(
 #));
-
 
 #
 # tls-policy-save event
