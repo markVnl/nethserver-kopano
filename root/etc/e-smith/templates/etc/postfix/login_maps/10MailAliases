@@ -1,0 +1,48 @@
+#
+# Retrieve the Mail Aliases and give back two dovecot login user and user@domain.org
+#
+#     user1@domain.com        user@domain.org,user
+#
+
+{
+    use esmith::AccountsDB;
+
+    $OUT = '';
+
+    my $accountsDb = esmith::AccountsDB->open_ro();
+    my $db = esmith::ConfigDB->open_ro();
+    my $domain = $db->get_value('DomainName');
+    my @records = $accountsDb->get_all_by_prop('type' => 'pseudonym');
+
+    $OUT .= "\n# fully qualified aliases (address\@domain)\n";
+
+    foreach my $record ( grep { $_->key !~ /\@$/} @records ) {
+        my @login_list = ();
+        foreach my $account (split (',', $record->prop('Account'))) {
+            if ($record->key ne $account && $account =~ m/\@$domain$/) {
+                 (my $accountSimplified = address_sanitize($account)) =~ s/@(.*)$//g;
+                  push @login_list, $accountSimplified, address_sanitize($account);
+            }
+        }
+        if(@login_list) {
+            $OUT .= sprintf("%-38s %s\n", $record->key, join (', ',@login_list));
+        }
+    }
+
+    $OUT .= "\n# generic aliases expansion (address@)\n";
+
+    foreach my $record ( grep { $_->key =~ /\@$/} @records ) {
+         foreach my $locdom (map { $_->key } @domains) {
+            my @login_list = ();
+            foreach my $account (split (',', $record->prop('Account'))) {
+                if (($record->key.$locdom) ne $account && $account =~ m/\@$domain$/) {
+                     (my $accountSimplified = address_sanitize($account)) =~ s/@(.*)$//g;
+                      push @login_list, $accountSimplified, address_sanitize($account);
+                }
+            }
+            if(@login_list) {
+                $OUT .= sprintf("%-38s %s\n", $record->key.$locdom, join (', ',@login_list));
+            }
+         }
+    }
+}
