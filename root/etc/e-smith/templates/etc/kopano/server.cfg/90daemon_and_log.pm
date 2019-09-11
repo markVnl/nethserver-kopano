@@ -5,9 +5,11 @@
 
 # DAEMON SETTINS
 
-server_listen_tls = *:237
+#TODO: check if cert is (defauft NSCRT) CA, if so disable server_listen_tls = yes
+#      Until done disable by default
+#server_listen_tls = *:237
 # unencrypted on localhost for kopano-gateway
-server_listen = localhost:236
+server_listen = *:236
 
 run_as_user = kopano
 run_as_group = kopano

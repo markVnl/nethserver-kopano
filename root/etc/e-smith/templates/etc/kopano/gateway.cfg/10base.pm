@@ -7,20 +7,19 @@
 #  - hostname = maildomain
 
 # enable/disable POP3, and POP3 listen port
-pop3_enable = no
-#pop3_port = 110
+pop3_listen = 
+#pop3_listen = *:110
 
 # enable/disable Secure POP3, and Secure POP3 listen port
-pop3s_enable = yes
-pop3s_port = 995
+pop3s_listen = *:955
+
 
 # enable/disable IMAP, and IMAP listen port
-imap_enable = no
-#imap_port = 143
+imap_listen = 
+#imap_listen = *:143
 
 # enable/disable Secure IMAP, and Secure IMAP listen port
-imaps_enable = yes
-imaps_port = 993
+imaps_listen = *:993
 
 # Set this value to a name to show in the logon greeting to clients.
 # Leave empty to use DNS to find this name.
