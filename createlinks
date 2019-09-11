@@ -1,0 +1,185 @@
+#!/usr/bin/perl -w
+
+#
+# NethServer Mail Server events configuration
+#
+
+#
+# Copyright (C) 2012 Nethesis S.r.l.
+# http://www.nethesis.it - support@nethesis.it
+# 
+# This script is part of NethServer.
+# 
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+# 
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+use esmith::Build::CreateLinks qw(:all);
+use File::Path;
+
+# kopano certificate paths
+my @certificates = (qw(
+    /etc/pki/kopano/private/kopano.key
+    /etc/pki/kopano/certs/kopano.crt
+    /etc/pki/kopano/certs/kopano.pem
+));
+
+
+# expanded templates on SAVE event
+my @saveTemplates = qw(
+    /etc/postfix/main.cf
+    /etc/postfix/transport
+    /etc/postfix/virtual
+    /etc/postfix/internal_access
+    /etc/postfix/recipient_bcc
+    /etc/kopano/ldap.cfg
+    /etc/kopano/gateway.cfg
+    /etc/kopano/server.cfg
+);
+
+
+#
+# nethserver-kopano-save event
+#
+event_templates('nethserver-kopano-save', @saveTemplates);
+
+event_actions('nethserver-kopano-save', qw(
+  nethserver-mail-postmap-update 30
+));
+
+event_services('nethserver-kopano-save', qw(
+	       postfix reload
+           kopano-server reload
+           kopano-gateway reload
+));
+
+# nethserver-kopano-uddate event
+event_templates('nethserver-kopano-update',
+		@saveTemplates,
+        @certificates, qw(
+		/etc/postfix/master.cf
+		/etc/amavisd/amavisd.conf
+));
+
+event_actions('nethserver-kopano-update', qw(
+	    initialize-default-databases 00
+        nethserver-kopano-default-domain-create 01
+        nethserver-kopano-conf 10
+	    nethserver-mail-postmap-update 30
+        nethserver-sssd-initkeytabs 50
+));
+
+event_services('nethserver-kopano-update', qw(
+	       amavisd restart
+	       rsyslog restart
+	       postfix restart
+           dnsmasq restart
+           kopano-server reload
+           kopano-gateway reload
+));
+
+#
+# pseudonym-* events expand and reload postfix table templates
+#
+my @pseudonymTemplates = qw(
+    /etc/postfix/virtual
+    /etc/postfix/internal_access
+);
+
+foreach (qw(create modify delete)) {
+    event_templates('pseudonym-' . $_, @pseudonymTemplates);
+    event_actions('pseudonym-'   . $_, 
+		  'nethserver-mail-postmap-update' => '30',
+	);
+}
+
+#
+# user-delete event
+#
+#event_templates('user-delete', qw(
+#));
+#event_actions('user-delete', qw(
+#));
+
+#
+# domain-* events: expand recipient_bcc map
+#
+foreach (qw(create delete modify)) {
+    event_templates('domain-' . $_, qw(
+		/etc/postfix/recipient_bcc
+		/etc/postfix/virtual
+		/etc/postfix/internal_access
+        /etc/kopano/gateway.cfg
+    ));
+    event_actions('domain-'   . $_, qw(
+        nethserver-mail-postmap-update 30
+    ));
+    event_services('domain-' . $_, qw(
+        kopano-gateway reload
+    )); # postfix reload is performed by mail-common
+}
+
+#
+# certificate-update event
+#
+event_templates('certificate-update', @certificates);
+
+event_services('certificate-update', qw(
+    kopano-server reload
+    kopano-gateway reload
+));
+
+
+#
+# profile-modify event (refs #2675)
+#
+event_templates('profile-modify', qw(
+    /etc/postfix/virtual
+));
+
+event_actions('profile-modify', qw(
+    nethserver-mail-postmap-update 30
+));
+#event_services('profile-modify', qw(
+#));
+
+
+#
+# mailbox-save event
+#
+event_templates('mailbox-save', qw(
+    /etc/postfix/virtual
+    /etc/postfix/internal_access
+));
+event_actions('mailbox-save', qw(
+    nethserver-mail-postmap-update 30
+));
+#event_services('mailbox-save', qw(
+#));
+
+
+#
+# tls-policy-save event
+#
+event_templates('tls-policy-save', qw(
+    /etc/postfix/main.cf
+    /etc/kopano/server.cfg
+    /etc/kopano/gateway.cfg
+));
+#event_actions('tls-policy-save', qw(
+#));
+event_services('tls-policy-save', qw(
+    postfix restart
+    kopano-server reload
+    kopano-gateway reload
+));
