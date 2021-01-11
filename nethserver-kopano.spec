@@ -1,6 +1,6 @@
 Summary: Mail server implementation based on postfix and kopano-core packages
 Name: nethserver-kopano
-Version: 0.0.2
+Version: 0.0.3
 Release: 1%{?dist}
 License: GPL
 URL: %{url_prefix}/%{name} 
